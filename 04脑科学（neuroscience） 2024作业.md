@@ -43,9 +43,150 @@ $$
 - 电极性（Polarity）：神经元膜的有序特性体现在膜内外电位差的存在。神经元在静息状态下的负电位是其正常功能的基础。
 - 动作电位的产生：当神经元受到刺激时，膜电位会去极化，形成动作电位。这种有序的电位变化是信息传递的基础。
 
+<img width="490" alt="image" src="https://github.com/user-attachments/assets/d7136cee-3040-4299-9c52-5138ca6967e7">
+
+#### 3 Hodgkin-Huxley (HH) 模型
+
+**1. HH模型简介**
+
+Hodgkin-Huxley模型是描述神经元电生理活动的经典模型，首次提出于1952年。该模型通过方程描述了动作电位的产生机制，涉及膜电流的离子流动。
+
+**2. 关键参数与方程**
+
+HH模型的核心在于描述神经元膜电流（ $I_m$ ）的不同组成部分：
+
+- 膜电流 $I_m$ 由三种离子的电流组成：
+
+ $I_m = I_{Na} + I_{K} + I_{L}$
+
+其中：
+- $I_{Na}$：钠离子电流
+- $I_{K}$：钾离子电流
+- $I_{L}$：泄漏电流
+
+离子电流方程：
+
+- 钠离子电流：
+
+$$
+I_{Na} = g_{Na} \cdot m^3 \cdot h \cdot (V - V_{Na})
+$$  
+
+- 钾离子电流：
+
+$$
+I_{K} = g_{K} \cdot n^4 \cdot (V - V_{K})
+$$
+
+- 泄漏电流：
+
+$$
+I_{L} = g_{L} \cdot (V - V_{L})
+$$
 
 
-### Function: alphabeta
+- 电导和离子平衡电位：
+   - $g_{Na}$, $g_{K}$, $g_{L}$ ：分别是钠、钾和泄漏的最大电导（单位：mS/cm²）。
+	•	$V_{Na}$, $V_{K}$, $V_{L}$ ：分别是钠、钾和泄漏的平衡电位（单位：mV）。
+
+**3. 动作电位的形成**
+
+<img width="386" alt="image" src="https://github.com/user-attachments/assets/c9940200-566c-4946-9d69-4a0b0f1b1d71">
+
+- 去极化：当刺激到达阈值时，钠通道打开，Na+流入细胞，导致膜电位迅速上升。
+- 再极化：在达到峰值后，钾通道打开，K+流出，膜电位下降。
+- 超极化：K+通道关闭延迟，膜电位暂时下降至-80 mV，随后恢复静息状态。
+
+**MATLAB代码示例**
+
+```matlab
+% Hodgkin-Huxley Action Potential Simulation
+% 霍奇金-赫胥黎动作电位模拟
+
+% Time parameters
+% 时间参数
+dt = 0.01;         % time step (ms) 时间步长（毫秒）
+tfinal = 50;       % total simulation time (ms) 总模拟时间（毫秒）
+time = 0:dt:tfinal; % time vector 时间向量
+
+% Parameters for membrane potentials (mV)
+% 膜电位参数（单位：毫伏）
+V_rest = -70;      % Resting membrane potential 静息膜电位
+V_threshold = -55; % Threshold potential 阈值电位
+V_peak = 40;       % Peak potential during depolarization 去极化的峰值电位
+V_hyperpolar = -90;% Hyperpolarization potential 超极化电位
+
+% Initialize membrane potential array
+% 初始化膜电位数组
+V = V_rest * ones(1, length(time));
+
+% Create a stimulation that crosses the threshold at t = 5 ms
+% 创建一个在5毫秒时超过阈值的刺激信号
+Istim = zeros(1, length(time));  
+Istim(50:60) = 20; % Simulate stimulus at 5 ms 模拟在5毫秒时的刺激
+
+% Membrane potential dynamics
+% 膜电位的动态变化
+for i = 2:length(time)
+    % Simulate depolarization, repolarization, and hyperpolarization
+    % 模拟去极化、再极化和超极化的过程
+    if V(i-1) > V_threshold
+        % Depolarization 去极化
+        V(i) = V(i-1) + (V_peak - V(i-1)) * dt;
+        % Transition to repolarization if peak is reached
+        % 如果达到峰值，转入再极化阶段
+        if V(i) >= V_peak
+            V(i) = V_peak;
+        end
+    elseif V(i-1) == V_peak
+        % Repolarization 再极化
+        V(i) = V(i-1) - (V(i-1) - V_rest) * dt;
+    elseif V(i-1) < V_rest
+        % Hyperpolarization 超极化
+        V(i) = V(i-1) + (V_rest - V_hyperpolar) * dt;
+    end
+    
+    % Add stimulus effect
+    % 加上刺激的影响
+    V(i) = V(i) + Istim(i);
+end
+
+% Plot the membrane potential over time
+% 绘制膜电位随时间的变化
+figure;
+plot(time, V, 'LineWidth', 2);
+hold on;
+
+% Highlight the different phases
+% 突出显示不同的阶段
+yline(V_rest, '--', 'Resting Potential', 'LabelHorizontalAlignment', 'left');
+yline(V_threshold, ':', 'Threshold Potential', 'LabelHorizontalAlignment', 'left');
+yline(V_peak, '-.', 'Peak Potential', 'LabelHorizontalAlignment', 'left');
+yline(V_hyperpolar, '--', 'Hyperpolarization', 'LabelHorizontalAlignment', 'left');
+
+% Label the axes
+% 标记坐标轴
+xlabel('Time (ms)'); % 时间（毫秒）
+ylabel('Membrane Potential (mV)'); % 膜电位（毫伏）
+title('Action Potential Simulation'); % 动作电位模拟
+grid on;
+```
+
+**代码工作原理总结：**
+
+- **dt**：设置时间步长，控制每次计算膜电位变化的时间间隔。
+- **V_rest**：表示神经元的静息膜电位，在没有刺激时维持在一个稳定的负值。
+- **V_threshold**：表示去极化的阈值电位，超过该值后神经元会产生动作电位。
+- **V_peak**：去极化的峰值电位，代表动作电位的最大电位。
+- **V_hyperpolar**：再极化后的超极化状态，电位比静息电
+
+
+
+
+
+
+
+### 编程作业
 
 This function calculates the alpha and beta functions used in the model of action potentials.
 
