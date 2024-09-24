@@ -1,3 +1,5 @@
-YES! I am a beginner of matlab.
-There are some notes of my study.
-Hope that will be helpful to you!
+## Welcome to My MATLAB Learning Notes!
+
+Hello! I’m a beginner in MATLAB, and I’ve created this repository to document my learning journey. These notes cover various MATLAB functions, concepts, and examples that I’ve found useful during my studies. I hope these notes will also be helpful to others who are starting out with MATLAB.
+
+Feel free to explore, contribute, or share any feedback!
