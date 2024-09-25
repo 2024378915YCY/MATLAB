@@ -117,6 +117,9 @@ $$
 
 Hodgkin-Huxley模型是描述神经元电生理活动的经典模型，首次提出于1952年。该模型通过方程描述了动作电位的产生机制，涉及膜电流的离子流动。
 
+<img width="392" alt="image" src="https://github.com/user-attachments/assets/bdd14bf0-1bb2-47d4-aaf1-d92446e2ac86">
+
+
 **2. 关键参数与方程**
 
 HH模型的核心在于描述神经元膜电流（ $I_m$ ）的不同组成部分：
@@ -238,13 +241,6 @@ title('Action Potential Simulation'); % 动作电位模拟
 grid on;
 ```
 
-**代码工作原理总结：**
-
-- **dt**：设置时间步长，控制每次计算膜电位变化的时间间隔。
-- **V_rest**：表示神经元的静息膜电位，在没有刺激时维持在一个稳定的负值。
-- **V_threshold**：表示去极化的阈值电位，超过该值后神经元会产生动作电位。
-- **V_peak**：去极化的峰值电位，代表动作电位的最大电位。
-- **V_hyperpolar**：再极化后的超极化状态，电位比静息电
 
 
 
@@ -262,8 +258,6 @@ grid on;
 对于一般的细胞膜电位，GHK方程可以写为：
 
 $$ V_m = \frac{RT}{F} \ln \left( \frac{P_{\text{Na}^+}[\text{Na}^+]{\text{out}} + P{\text{K}^+}[\text{K}^+]{\text{out}} + P{\text{Cl}^-}[\text{Cl}^-]{\text{in}}}{P{\text{Na}^+}[\text{Na}^+]{\text{in}} + P{\text{K}^+}[\text{K}^+]{\text{in}} + P{\text{Cl}^-}[\text{Cl}^-]_{\text{out}}} \right) $$
-
-
 
 
 其中：
@@ -296,50 +290,58 @@ $$ V_m = \frac{RT}{F} \ln \left( \frac{P_{\text{Na}^+}[\text{Na}^+]{\text{out}} 
 
 ![image](https://github.com/user-attachments/assets/197312c3-4cc7-491c-9341-3fc0811c420c)
 
+##### matlab代码
 
-
-This function calculates the alpha and beta functions used in the model of action potentials.
-
-#### Parameters
-- `v`: Membrane potential (in mV).
-- `m`: Activation variable for sodium channels.
-- `h`: Inactivation variable for sodium channels.
-- `n`: Activation variable for potassium channels.
-
-#### Returns
-- `am`: Alpha parameter for activation variable `m`.
-- `ah`: Alpha parameter for inactivation variable `h`.
-- `an`: Alpha parameter for activation variable `n`.
-- `bm`: Beta parameter for activation variable `m`.
-- `bh`: Beta parameter for inactivation variable `h`.
-- `bn`: Beta parameter for activation variable `n`.
-- `gna`: Sodium conductance.
-- `gk`: Potassium conductance.
-- `gl`: Leakage conductance.
-
-#### Code
 ```matlab
-function [am, ah, an, bm, bh, bn, gna, gk, gl] = alphabeta(v, m, h, n)
-    gnax = 120; % gNa max conductance, unit: mS/cm² % gNa 最大导电性，单位：mS/cm²
-    gkx = 36;   % gK max conductance, unit: mS/cm² % gK 最大导电性，单位：mS/cm²
-    glx = 0.3;  % gl leakage conductance, unit: mS/cm² % gl 漏导电性，单位：mS/cm² 
+% 参数定义
+R = 8.314; % 气体常数 (J/(mol·K))
+F = 96485; % 法拉第常数 (C/mol)
 
-    % Calculate alpha functions
-    am = -0.1 * (40 + v) / (exp(-(40 + v) / 10) - 1);
-    ah = 0.07 * exp(-(v + 65) / 20);
-    an = -0.01 * (v + 55) / (exp(-(55 + v) / 10) - 1);
-    
-    % Calculate beta functions
-    bm = 4 * exp(-(v + 65) / 18);
-    bh = 1 / (exp(-(35 + v) / 10) + 1);
-    bn = 0.125 * exp(-(v + 65) / 80);
-    
-    % Calculate conductance 计算导电性
-    gna = gnax * m^3 * h; % Sodium conductance 计算导电性
-    gk = gkx * n^4;       % Potassium conductance 计算导电性
-    gl = glx;             % Leakage conductance 计算导电性
+% 温度范围 (摄氏度)
+temperatures_C = 6:10:40; % 从0到100摄氏度
+temperatures_K = temperatures_C + 273.15; % 转换为开尔文
+
+% 离子浓度 (摩尔/升)
+Na_outside = 120; % 外部钠离子浓度
+Na_inside = 12;   % 内部钠离子浓度
+K_outside = 5;    % 外部钾离子浓度
+K_inside = 125;   % 内部钾离子浓度
+Cl_outside = 125; % 外部氯离子浓度
+Cl_inside = 10;   % 内部氯离子浓度
+
+% 通透性系数
+P_K = 1;         % 钾的通透性
+P_Na = 0.03;     % 钠的通透性
+P_Cl = 0.1;      % 氯的通透性
+
+% 计算膜电位
+E_m = zeros(size(temperatures_K)); % 初始化膜电位数组
+
+for i = 1:length(temperatures_K)
+    T = temperatures_K(i); % 当前温度
+    E_m(i) = (R * T / F) * log((P_Na * Na_outside + P_K * K_outside + P_Cl * Cl_inside) / ...
+                                (P_Na * Na_inside + P_K * K_inside + P_Cl * Cl_outside)); % Goldman-Hodgkin-Katz 方程
 end
+
+% 绘制结果
+figure;
+plot(temperatures_C, E_m, '-o');
+xlabel('Temperature (°C)');
+ylabel('Membrane Potential (V)');
+title('Membrane Potential Calculated using Goldman-Hodgkin-Katz Equation');
+grid on;
 ```
 
-### results
-<img width="570" alt="image" src="https://github.com/user-attachments/assets/42b8a795-7ffe-42df-a6d3-8ad534026612">
+![image](https://github.com/user-attachments/assets/fe3534a1-7967-41b4-8216-8914ccea6728)
+
+
+#### 3.Spike-Triggered Average (STA)
+
+- **STA的定义**
+
+Spike-Triggered Average（STA）是一种分析方法，用于识别刺激信号与神经元动作电位之间的关系。通过计算在神经元放电之前的刺激信号的平均值，可以发现神经元对刺激的反应特征。
+
+
+
+
+
