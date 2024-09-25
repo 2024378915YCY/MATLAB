@@ -166,88 +166,6 @@ $$
 - 再极化：在达到峰值后，钾通道打开，K+流出，膜电位下降。
 - 超极化：K+通道关闭延迟，膜电位暂时下降至-80 mV，随后恢复静息状态。
 
-**MATLAB代码示例**
-
-```matlab
-% Hodgkin-Huxley Action Potential Simulation
-% 霍奇金-赫胥黎动作电位模拟
-
-% Time parameters
-% 时间参数
-dt = 0.01;         % time step (ms) 时间步长（毫秒）
-tfinal = 50;       % total simulation time (ms) 总模拟时间（毫秒）
-time = 0:dt:tfinal; % time vector 时间向量
-
-% Parameters for membrane potentials (mV)
-% 膜电位参数（单位：毫伏）
-V_rest = -70;      % Resting membrane potential 静息膜电位
-V_threshold = -55; % Threshold potential 阈值电位
-V_peak = 40;       % Peak potential during depolarization 去极化的峰值电位
-V_hyperpolar = -90;% Hyperpolarization potential 超极化电位
-
-% Initialize membrane potential array
-% 初始化膜电位数组
-V = V_rest * ones(1, length(time));
-
-% Create a stimulation that crosses the threshold at t = 5 ms
-% 创建一个在5毫秒时超过阈值的刺激信号
-Istim = zeros(1, length(time));  
-Istim(50:60) = 20; % Simulate stimulus at 5 ms 模拟在5毫秒时的刺激
-
-% Membrane potential dynamics
-% 膜电位的动态变化
-for i = 2:length(time)
-    % Simulate depolarization, repolarization, and hyperpolarization
-    % 模拟去极化、再极化和超极化的过程
-    if V(i-1) > V_threshold
-        % Depolarization 去极化
-        V(i) = V(i-1) + (V_peak - V(i-1)) * dt;
-        % Transition to repolarization if peak is reached
-        % 如果达到峰值，转入再极化阶段
-        if V(i) >= V_peak
-            V(i) = V_peak;
-        end
-    elseif V(i-1) == V_peak
-        % Repolarization 再极化
-        V(i) = V(i-1) - (V(i-1) - V_rest) * dt;
-    elseif V(i-1) < V_rest
-        % Hyperpolarization 超极化
-        V(i) = V(i-1) + (V_rest - V_hyperpolar) * dt;
-    end
-    
-    % Add stimulus effect
-    % 加上刺激的影响
-    V(i) = V(i) + Istim(i);
-end
-
-% Plot the membrane potential over time
-% 绘制膜电位随时间的变化
-figure;
-plot(time, V, 'LineWidth', 2);
-hold on;
-
-% Highlight the different phases
-% 突出显示不同的阶段
-yline(V_rest, '--', 'Resting Potential', 'LabelHorizontalAlignment', 'left');
-yline(V_threshold, ':', 'Threshold Potential', 'LabelHorizontalAlignment', 'left');
-yline(V_peak, '-.', 'Peak Potential', 'LabelHorizontalAlignment', 'left');
-yline(V_hyperpolar, '--', 'Hyperpolarization', 'LabelHorizontalAlignment', 'left');
-
-% Label the axes
-% 标记坐标轴
-xlabel('Time (ms)'); % 时间（毫秒）
-ylabel('Membrane Potential (mV)'); % 膜电位（毫伏）
-title('Action Potential Simulation'); % 动作电位模拟
-grid on;
-```
-
-
-
-
-
-
-
-
 ### 作业
 
 #### 1. 静息膜电位计算
@@ -334,12 +252,196 @@ grid on;
 
 ![image](https://github.com/user-attachments/assets/fe3534a1-7967-41b4-8216-8914ccea6728)
 
+#### 2. Hogdkin-Huxley 神经元模型模拟
 
-#### 3.Spike-Triggered Average (STA)
+- **matlab代码**
+
+```matlab
+function [am, ah, an, bm, bh, bn, gna, gk, gl] = alphabeta(v, m, h, n)
+    gnax = 120; % gNa max conductance, unit: mS/cm² % gNa 最大导电性，单位：mS/cm²
+    gkx = 36;   % gK max conductance, unit: mS/cm² % gK 最大导电性，单位：mS/cm²
+    glx = 0.3;  % gl leakage conductance, unit: mS/cm² % gl 漏导电性，单位：mS/cm² 
+
+    % Calculate alpha functions
+    am = -0.1 * (40 + v) / (exp(-(40 + v) / 10) - 1);
+    ah = 0.07 * exp(-(v + 65) / 20);
+    an = -0.01 * (v + 55) / (exp(-(55 + v) / 10) - 1);
+    
+    % Calculate beta functions
+    bm = 4 * exp(-(v + 65) / 18);
+    bh = 1 / (exp(-(35 + v) / 10) + 1);
+    bn = 0.125 * exp(-(v + 65) / 80);
+    
+    % Calculate conductance 计算导电性
+    gna = gnax * m^3 * h; % Sodium conductance 计算导电性
+    gk = gkx * n^4;       % Potassium conductance 计算导电性
+    gl = glx;             % Leakage conductance 计算导电性
+end
+```
+
+```matlab
+function y = HH_euler(dt, tfinal, Istim)
+    % maximal conductance (in units of mS/cm^2); 1=K+, 2=Ma+, 3=Leakage
+    vna = 50; vk = -77; vl = -54.4; % mV
+    m = 0.05; h = 0.6; n = 0.3; v = -70; % 给出变量初值
+    t = 0; i = 0;
+    
+    % Preallocate y for speed
+    maxSteps = floor(tfinal / dt);
+    y = zeros(maxSteps, 5);
+    
+    while t <= tfinal
+        i = i + 1; 
+        t = t + dt;
+        
+        if t < 50 
+            signal = 0; 
+        else 
+            signal = Istim; 
+        end
+        
+        [am, ah, an, bm, bh, bn, gna, gk, gl] = alphabeta(v, m, h, n); % 调用函数
+        
+        n = n + (an * (1 - n) - bn * n) * dt;
+        m = m + (am * (1 - m) - bm * m) * dt;
+        h = h + (ah * (1 - h) - bh * h) * dt;
+        v = v + (signal - gna * (v - vna) - gk * (v - vk) - gl * (v - vl)) * dt;
+        
+        y(i, 1) = t; 
+        y(i, 2) = v; 
+        y(i, 3) = m; 
+        y(i, 4) = h; 
+        y(i, 5) = n;
+    end
+
+    % Plotting the results
+    figure;
+
+    % Plot membrane potential (v)
+    subplot(3, 1, 1);
+    plot(y(:, 1), y(:, 2), 'b', 'LineWidth', 1.5);
+    xlabel('Time (ms)');
+    ylabel('Membrane Potential (mV)');
+    title('Membrane Potential over Time');
+    grid on;
+
+    % Plot 
+    subplot(3, 1, 2);
+    plot(y(:, 1), y(:, 3), 'r', 'LineWidth', 1.5);
+    xlabel('Time (ms)');
+    ylabel('m');
+    title('Activation Variable m over Time');
+    grid on;
+    subplot(3, 1, 3);
+    plot(y(:, 1), y(:, 4), 'g', 'LineWidth', 1.5); % h in green
+    hold on;
+    plot(y(:, 1), y(:, 5), 'k', 'LineWidth', 1.5); % n in black
+    xlabel('Time (ms)');
+    ylabel('h and n');
+    title('Inactivation Variable h and Activation Variable n over Time');
+    legend('h', 'n');
+    grid on;
+
+end
+
+dt = 0.01;      % 时间步长
+tfinal = 100;   % 总时间
+Istim = 10;     % 刺激电流
+
+y = HH_euler(dt, tfinal, Istim); % 调用函数
+```
+
+- **运行结果**
+![image](https://github.com/user-attachments/assets/47bf2434-cc66-4434-9585-b56c1fddd811)
+
+
+- **解释：**  
+    （1）膜电位随时间变化（Membrane Potential over Time）：描绘了膜电位（v）随时间（t）的变化。当膜电位达到阈值时，细胞会发生动作电位（action potential）。图中的波动反映了神经元在受到刺激时的兴奋过程，包括去极化和复极化的阶段。  
+    （2） 激活变量m随时间变化（Activation Variable m over Time）：激活变量m（钠通道的激活）随时间的变化。m表示钠通道的激活程度，控制着钠离子的流入。随着膜电位的变化，m的值也会变化，通常在膜去极化时迅速增加。  
+    （3）非激活变量h和激活变量n随时间变化（Inactivation Variable h and Activation Variable n over Time）：非激活变量h（钠通道的非激活）和激活变量n（钾通道的激活）随时间的变化。h表示钠通道的非激活程度，随着时间的推移，它的值会逐渐减小，这使得钠通道在膜去极化后关闭。n表示钾通道的激活程度，在去极化过程中，n的值增加，允许钾离子流出，从而促进膜复极化。
+
+
+#### 3. Hogdkin-Huxley 神经元模型Spike-Triggered Average (STA)模拟
 
 - **STA的定义**
 
 Spike-Triggered Average（STA）是一种分析方法，用于识别刺激信号与神经元动作电位之间的关系。通过计算在神经元放电之前的刺激信号的平均值，可以发现神经元对刺激的反应特征。
+
+- **matlab代码**  
+   
+```matlab
+% 生成刺激信号（高斯白噪声）
+dt = 0.1; % 时间步长，单位：ms
+tfinal = 100; % 总时间，单位：ms
+time = 0:dt:tfinal; % 时间向量
+stim = randn(size(time)); % 高斯白噪声刺激信号
+
+% 设置脉冲信号的参数
+spike_threshold = 0.5; % 动作电位阈值
+spikes = zeros(size(time)); % 初始化脉冲信号
+
+% 模拟神经元活动
+for i = 2:length(stim)
+    % 当刺激信号超过阈值时产生动作电位
+    if stim(i) > spike_threshold
+        spikes(i) = 1; % 记录动作电位
+    else
+        spikes(i) = 0; % 没有动作电位
+    end
+end
+
+% 将时间转换为每个单位对应2ms
+% 计算有效脉冲信号
+spike_indices = find(spikes); % 找到所有动作电位的位置
+spike_times = spike_indices * 2; % 每个单位对应2ms
+
+% 设置窗口大小
+N = 20; % 窗口大小
+
+% 调用STA函数
+[kernel, kerr, out] = sta(stim, spikes, N);
+
+% 绘制核函数
+figure;
+plot(kernel, 'LineWidth', 2); % 绘制核函数
+hold on;
+fill([1:N N:-1:1], [kernel + kerr fliplr(kernel - kerr)], 'b', 'FaceAlpha', 0.2); % 置信区间
+hold off;
+title('Spike-Triggered Average (STA)');
+xlabel('Time (2ms units)');
+ylabel('STA Value');
+grid on;
+
+% 绘制刺激信号与脉冲信号
+figure;
+subplot(2, 1, 1);
+plot(time, stim); % 绘制刺激信号
+title('Stimulus Signal');
+xlabel('Time (ms)');
+ylabel('Stimulus Amplitude');
+grid on;
+
+subplot(2, 1, 2);
+plot(time, spikes); % 绘制脉冲信号
+title('Spike Signal');
+xlabel('Time (ms)');
+ylabel('Spike (1 / 0)');
+ylim([-0.1 1.1]); % 设置y轴范围
+grid on;
+```
+- 结果
+
+![image](https://github.com/user-attachments/assets/9fd5526d-1153-4aee-9cf3-5238973ff3c8)
+ - **图解释**：展示了脉冲触发平均（STA）的值，表示刺激信号与动作电位之间的关系。如图所示，20ms的时候STA值显著高于0，说明该时间段内的刺激信号对神经元的兴奋起到了关键作用。
+
+ ![image](https://github.com/user-attachments/assets/10ec6c60-e23c-4037-8ff3-6fef5dccae83)
+- **图解释**：
+    - 刺激信号图（stimulus signal）：展示了生成的高斯白噪声刺激信号随时间变化的情况，x轴表示时间（毫秒），y轴表示刺激幅度。
+    - 脉冲信号图（spike signal ）：显示了神经元的脉冲信号（即动作电位）随时间的变化。图中显示出脉冲信号（1表示动作电位，0表示未发放动作电位）的生成情况。当刺激信号超过设定的阈值时，神经元会产生动作电位，脉冲信号的值为1。
+
+
+
+
 
 
 
